@@ -4,6 +4,7 @@ import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
 import io.hhplus.tdd.exception.NotFoundException;
 import io.hhplus.tdd.point.PointHistory;
+import io.hhplus.tdd.point.TransactionType;
 import io.hhplus.tdd.point.UserPoint;
 import java.util.List;
 import java.util.Optional;
@@ -31,4 +32,22 @@ public class PointService {
         }
         return pointHistoryTable.selectAllByUserId(userId);
     }
+
+    public UserPoint chargePoint(long userId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("The recharge amount must be greater than 0");
+        }
+
+        UserPoint userPoint = Optional.ofNullable(userPointTable.selectById(userId))
+            .orElseThrow(() -> new NotFoundException("User not found userid: " + userId));
+
+        long updatedPoint = userPoint.point() + amount;
+        UserPoint updatedUserPoint = userPointTable.insertOrUpdate(userId, updatedPoint);
+
+        pointHistoryTable.insert(userId, amount, TransactionType.CHARGE, System.currentTimeMillis());
+
+        return updatedUserPoint;
+    }
+
+
 }

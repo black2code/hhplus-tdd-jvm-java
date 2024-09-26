@@ -2,6 +2,9 @@ package io.hhplus.tdd;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.hhplus.tdd.database.PointHistoryTable;
@@ -107,6 +110,51 @@ public class PointServiceTest {
 
         // When & Then
         assertThrows(NotFoundException.class, () -> pointService.getPointHistories(userId));
+    }
+
+    @Test
+    @DisplayName("Test chargePoint - Success Case")
+    void testChargePoint() {
+        // Given
+        long userId = 1L;
+        long initialPoint = 100L;
+        long chargeAmount = 50L;
+        UserPoint initialUserPoint = new UserPoint(userId, initialPoint, System.currentTimeMillis());
+        UserPoint expectedUserPoint = new UserPoint(userId, initialPoint + chargeAmount, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(initialUserPoint);
+        when(userPointTable.insertOrUpdate(userId, initialPoint + chargeAmount)).thenReturn(expectedUserPoint);
+
+        // When
+        UserPoint result = pointService.chargePoint(userId, chargeAmount);
+
+        // Then
+        assertThat(result).isEqualTo(expectedUserPoint);
+        verify(pointHistoryTable).insert(eq(userId), eq(chargeAmount), eq(TransactionType.CHARGE), anyLong());
+    }
+
+    @Test
+    @DisplayName("Test chargePoint - User Not Found Case")
+    void testChargePointUserNotFound() {
+        // Given
+        long userId = 1L;
+        long chargeAmount = 50L;
+
+        when(userPointTable.selectById(userId)).thenReturn(null);
+
+        // When & Then
+        assertThrows(NotFoundException.class, () -> pointService.chargePoint(userId, chargeAmount));
+    }
+
+    @Test
+    @DisplayName("Test chargePoint - Invalid Amount Case")
+    void testChargePointInvalidAmount() {
+        // Given
+        long userId = 1L;
+        long invalidAmount = -50L;
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> pointService.chargePoint(userId, invalidAmount));
     }
 
 }
