@@ -35,7 +35,7 @@ public class PointService {
 
     public UserPoint chargePoint(long userId, long amount) {
         if (amount <= 0) {
-            throw new IllegalArgumentException("The recharge amount must be greater than 0");
+            throw new IllegalArgumentException("amount must be greater than 0");
         }
 
         UserPoint userPoint = Optional.ofNullable(userPointTable.selectById(userId))
@@ -49,5 +49,24 @@ public class PointService {
         return updatedUserPoint;
     }
 
+    public UserPoint usePoint(long userId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be greater than 0");
+        }
+
+        UserPoint userPoint = Optional.ofNullable(userPointTable.selectById(userId))
+            .orElseThrow(() -> new NotFoundException("User not found userid: " + userId));
+
+        if (userPoint.point() < amount) {
+            throw new IllegalArgumentException("Insufficient balance.");
+        }
+
+        long updatedPoint = userPoint.point() - amount;
+        UserPoint updatedUserPoint = userPointTable.insertOrUpdate(userId, updatedPoint);
+
+        pointHistoryTable.insert(userId, amount, TransactionType.USE, System.currentTimeMillis());
+
+        return updatedUserPoint;
+    }
 
 }

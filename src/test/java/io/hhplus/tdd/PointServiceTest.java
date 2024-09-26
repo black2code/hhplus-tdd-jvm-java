@@ -1,6 +1,7 @@
 package io.hhplus.tdd;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -155,6 +156,70 @@ public class PointServiceTest {
 
         // When & Then
         assertThrows(IllegalArgumentException.class, () -> pointService.chargePoint(userId, invalidAmount));
+    }
+
+    @Test
+    @DisplayName("Test usePoint - Success Case")
+    void testUsePoint() {
+        // Given
+        long userId = 1L;
+        long initialPoint = 100L;
+        long useAmount = 50L;
+        UserPoint initialUserPoint = new UserPoint(userId, initialPoint, System.currentTimeMillis());
+        UserPoint expectedUserPoint = new UserPoint(userId, initialPoint - useAmount, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(initialUserPoint);
+        when(userPointTable.insertOrUpdate(userId, initialPoint - useAmount)).thenReturn(expectedUserPoint);
+
+        // When
+        UserPoint result = pointService.usePoint(userId, useAmount);
+
+        // Then
+        assertThat(result).isEqualTo(expectedUserPoint);
+        verify(pointHistoryTable).insert(eq(userId), eq(useAmount), eq(TransactionType.USE), anyLong());
+    }
+
+    @Test
+    @DisplayName("Test usePoint - Insufficient Balance Case")
+    void testUsePointInsufficientBalance() {
+        // Given
+        long userId = 1L;
+        long initialPoint = 30L;
+        long useAmount = 50L;
+        UserPoint initialUserPoint = new UserPoint(userId, initialPoint, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(initialUserPoint);
+
+        // When & Then
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> pointService.usePoint(userId, useAmount));
+        assertEquals("Insufficient balance.", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Test usePoint - Invalid Amount Case")
+    void testUsePointInvalidAmount() {
+        // Given
+        long userId = 1L;
+        long invalidAmount = 0L;
+
+        // When & Then
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> pointService.usePoint(userId, invalidAmount));
+        assertEquals("amount must be greater than 0", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Test usePoint - User Not Found Case")
+    void testUsePointUserNotFound() {
+        // Given
+        long userId = 1L;
+        long useAmount = 50L;
+
+        when(userPointTable.selectById(userId)).thenReturn(null);
+
+        // When & Then
+        assertThrows(NotFoundException.class, () -> pointService.usePoint(userId, useAmount));
     }
 
 }
